@@ -17,7 +17,7 @@ int switch6 = 13;
 int i=0;
 long interval = 1000; 
 long previousMillis = 0;
-long intervalPlex = 10; 
+long intervalPlex = 3; 
 long previousMillisPlex = 0;
 
 void setup() {
