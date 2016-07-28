@@ -25,31 +25,23 @@ int switch3 = 4;
 int switch4 = 7;
 int switch5 = 12;
 int switch6 = 13;
-int hora=0, minuto=0, segundo=0, dia=0, mes=0, ano=0;
+int hora=-1, minuto=-1, segundo=0, dia=27, mes=7, ano=2016;
 
 int i=0;
 long interval = 1000; //intervalo de atualizacao display 1s
+long delayAjuste =300; //intervalo ajuste do botao
 long previousMillis = 0;
+long previousMillis2 = 0;
 long intervalPlex = 3; //frequencia do multiplex 55hz
+boolean pisca = false; //alterna display liga desliga
+int cont =0;
 
 void setup() {
   //Serial.begin(9600);
   Wire.begin();//ajustar rtc
   RTC.setRAM(0, (uint8_t *)&startAddr, sizeof(uint16_t));// Store startAddr in NV-RAM address 0x08 
   RTC.getRAM(54, (uint8_t *)&TimeIsSet, sizeof(uint16_t));
-  if (TimeIsSet != 0xaa55){
-    ajustaHora();
-    /*
-    RTC.stopClock();   
-    RTC.fillByYMD(2016,7,11);
-    RTC.fillByHMS(18,30,0);
-    RTC.setTime();
-    */
-    TimeIsSet = 0xaa55;
-    RTC.setRAM(54, (uint8_t *)&TimeIsSet, sizeof(uint16_t));
-    //RTC.startClock();
-  }
- 
+  
   pinMode(11, OUTPUT);// D Pinos de comunicacao 74141N
   pinMode(10, OUTPUT);// C
   pinMode(9, OUTPUT);// B
@@ -61,10 +53,25 @@ void setup() {
   pinMode(switch4, OUTPUT);//pinos do multiplex
   pinMode(switch5, OUTPUT);//pinos do multiplex
   pinMode(switch6, OUTPUT);//pinos do multiplex
+  
+  if (TimeIsSet != 0xaa55){
+    ajustaHora();
+    /*
+    RTC.stopClock();   
+    RTC.fillByYMD(2016,7,11);
+    RTC.fillByHMS(18,30,0);
+    RTC.setTime();
+    */
+    TimeIsSet = 0xaa55;
+    RTC.setRAM(54, (uint8_t *)&TimeIsSet, sizeof(uint16_t));
+    RTC.startClock();
+    previousMillis = 0;
+  }
 }
  
 void loop() {
     mostraHora();
+    
 }
 
 //-------------------------------------------------//
@@ -84,7 +91,14 @@ void mostraHora(){
      //Serial.println(segundo);
      
      //paraDisplay(18, 30, 0);
-    
+     /*
+     Serial.print(hora);
+    Serial.print(" : ");
+    Serial.print(minuto);
+    Serial.print(" : ");
+    Serial.println(segundo);
+    */
+     
      paraDisplay(hora, minuto, segundo);
      
 }
@@ -246,57 +260,94 @@ byte expanderRead() {
 }
 
 void ajustaHora(){
-  int botao=0,hora=-1,minuto=-1,dia=1,mes=8,ano=2016;
+  int botao=0;
+  
+  while(botao!=3){
+     botao=0;
+     byte returnByte = expanderRead();
+     boolean bitStatus = bitRead(returnByte, BT_5);
+     botao+=1*bitStatus;
+     returnByte = expanderRead();
+     bitStatus = bitRead(returnByte, BT_6);
+     botao+=2*bitStatus;
+     returnByte = expanderRead();
+     bitStatus = bitRead(returnByte, BT_7);
+     botao+=3*bitStatus;
+     piscaTela();
+  }
+  
+  apagaTela();
+  delay(3000);
+  
+  botao=0;
   
   while(botao!=3 || hora==-1){
      botao=0;
-     
-     byte returnByte = expanderRead();
-     boolean bitStatus = bitRead(returnByte, BT_5);
-     botao+=1*bitStatus;
-     returnByte = expanderRead();
-     bitStatus = bitRead(returnByte, BT_6);
-     botao+=2*bitStatus;
-     returnByte = expanderRead();
-     bitStatus = bitRead(returnByte, BT_7);
-     botao+=3*bitStatus;
-     //delay(100);
-     if(botao==1){
-       hora++;
-       if(hora>24) hora=1;
-     }else{
-       if(botao==2){
-         hora--;
-         if(hora<1) hora=24;
+      
+     unsigned long currentMillis = millis();
+     if(currentMillis - previousMillis > delayAjuste) {  
+       byte returnByte = expanderRead();
+       boolean bitStatus = bitRead(returnByte, BT_5);
+       botao+=1*bitStatus;
+       returnByte = expanderRead();
+       bitStatus = bitRead(returnByte, BT_6);
+       botao+=2*bitStatus;
+       returnByte = expanderRead();
+       bitStatus = bitRead(returnByte, BT_7);
+       botao+=3*bitStatus;
+       //delay(100);
+       if(botao==4){
+         hora++;
+         if(hora>24) hora=1;
+       }else{
+         if(botao==5){
+           hora--;
+           if(hora<1) hora=24;
+         }
        }
+       previousMillis = currentMillis;
      }
-     telaAjusteHora(hora);
+     paraDisplay(hora, 0, 0);
+     //telaAjusteHora();
      
    }
+   
+   
+   apagaTela();
+   delay(3000);
+   
+   
    botao=0;
+   
    while(botao!=3 || minuto==-1){
      botao=0;
      
-     byte returnByte = expanderRead();
-     boolean bitStatus = bitRead(returnByte, BT_5);
-     botao+=1*bitStatus;
-     returnByte = expanderRead();
-     bitStatus = bitRead(returnByte, BT_6);
-     botao+=2*bitStatus;
-     returnByte = expanderRead();
-     bitStatus = bitRead(returnByte, BT_7);
-     botao+=3*bitStatus;
-     //delay(100);
-     if(botao==1){
-       minuto++;
-       if(minuto>59) minuto=0;
-     }else{
-       if(botao==2){
-         minuto--;
-         if(minuto<0) minuto=59;
+     unsigned long currentMillis = millis();
+     if(currentMillis - previousMillis > delayAjuste) {
+       byte returnByte = expanderRead();
+       boolean bitStatus = bitRead(returnByte, BT_5);
+       botao+=1*bitStatus;
+       returnByte = expanderRead();
+       bitStatus = bitRead(returnByte, BT_6);
+       botao+=2*bitStatus;
+       returnByte = expanderRead();
+       bitStatus = bitRead(returnByte, BT_7);
+       botao+=3*bitStatus;
+       //delay(100);
+       if(botao==4){
+         minuto++;
+         if(minuto>59) minuto=0;
+       }else{
+         if(botao==5){
+           minuto--;
+           if(minuto<0) minuto=59;
+         }
        }
+       previousMillis = currentMillis;
      }
-     telaAjusteMinuto(minuto);
+     
+     //telaAjusteMinuto();
+     paraDisplay(hora, minuto, 0);
      
    }
    
@@ -304,34 +355,51 @@ void ajustaHora(){
     RTC.fillByYMD(ano,mes,dia);
     RTC.fillByHMS(hora,minuto,0);
     RTC.setTime();
-    RTC.startClock(); 
+    //RTC.startClock(); 
 }
 
-void telaAjusteHora( int hora){  
- if(hora==-1){
-   hora=0;
-   piscaTela();
- }else{
+/*
+void telaAjusteHora(){  
+ if(hora==-1) hora=0;
+  //Serial.print("hora ");
+  //Serial.println(hora);
   paraDisplay(hora, 0, 0);
-  } 
 }
 
-void telaAjusteMinuto( int minuto){
+void telaAjusteMinuto(){
   if(minuto==-1) minuto=0;
+  //Serial.print("minuto ");
+  //Serial.println(minuto);
   paraDisplay(hora, minuto, 0); 
 }
+*/
 
 void piscaTela(){
-    digitalWrite(switch1, LOW);
-    digitalWrite(switch2, LOW);
-    digitalWrite(switch3, LOW);
-    digitalWrite(switch4, LOW);
-    digitalWrite(switch5, LOW);
-    digitalWrite(switch6, LOW);
-    delay(500);
-    unsigned long currentMillis = millis();
-    while(millis() < currentMillis + 500){
-      paraDisplay(0, 0, 0);
-    }
-    
+  apagaTela();
+  delay(1000);
+  if(cont>9) cont =0;
+  nixie(cont);
+  digitalWrite(switch1, HIGH);
+  delay(150);
+  digitalWrite(switch2, HIGH);
+  delay(150);
+  digitalWrite(switch3, HIGH);
+  delay(150);
+  digitalWrite(switch4, HIGH);
+  delay(150);
+  digitalWrite(switch5, HIGH);
+  delay(150);
+  digitalWrite(switch6, HIGH);
+  delay(150);
+  cont++;
+  
+}
+
+void apagaTela(){
+  digitalWrite(switch1, LOW);
+  digitalWrite(switch2, LOW);
+  digitalWrite(switch3, LOW);
+  digitalWrite(switch4, LOW);
+  digitalWrite(switch5, LOW);
+  digitalWrite(switch6, LOW);
 }
