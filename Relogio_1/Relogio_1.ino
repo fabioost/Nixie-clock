@@ -417,3 +417,8 @@ int leBotao(){
    botao+=3*bitStatus;
    return botao;
 }
+
+int leBotao(){
+  int botao;
+  return botao;
+}
