@@ -403,3 +403,17 @@ void apagaTela(){
   digitalWrite(switch5, LOW);
   digitalWrite(switch6, LOW);
 }
+
+int leBotao(){
+   int botao;
+   byte returnByte = expanderRead();
+   boolean bitStatus = bitRead(returnByte, BT_5);
+   botao+=1*bitStatus;
+   returnByte = expanderRead();
+   bitStatus = bitRead(returnByte, BT_6);
+   botao+=2*bitStatus;
+   returnByte = expanderRead();
+   bitStatus = bitRead(returnByte, BT_7);
+   botao+=3*bitStatus;
+   return botao;
+}
