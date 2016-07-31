@@ -36,8 +36,10 @@ long intervalPlex = 3; //frequencia do multiplex 55hz
 boolean pisca = false; //alterna display liga desliga
 int cont =0;
 
+
 void setup() {
   //Serial.begin(9600);
+  
   Wire.begin();//ajustar rtc
   RTC.setRAM(0, (uint8_t *)&startAddr, sizeof(uint16_t));// Store startAddr in NV-RAM address 0x08 
   RTC.getRAM(54, (uint8_t *)&TimeIsSet, sizeof(uint16_t));
@@ -67,11 +69,14 @@ void setup() {
     RTC.startClock();
     previousMillis = 0;
   }
+  
 }
  
 void loop() {
-    mostraHora();
-    
+   // mostraHora();
+   Serial.println(leBotao());
+   //Serial.println("A");   
+   delay(1000);
 }
 
 //-------------------------------------------------//
@@ -86,9 +91,7 @@ void mostraHora(){
        segundo = RTC.second;
        previousMillis = currentMillis;
      }
-     //Serial.print(hora);//debugin
-     //Serial.print(minuto);
-     //Serial.println(segundo);
+     
      
      //paraDisplay(18, 30, 0);
      /*
@@ -250,7 +253,7 @@ void nixie(int num){ //metodo de acionamento de um digito
   }
   
 }
-byte expanderRead() {
+byte expanderRead() { ///le expansor de portas
   byte _data;
   Wire.requestFrom(expanderAddr, 1);
   if(Wire.available()) {
@@ -259,20 +262,10 @@ byte expanderRead() {
   return _data;
 }
 
+/////////////// AJUSTE DA HORA ////////////////////////////////
 void ajustaHora(){
   int botao=0;
-  
-  while(botao!=3){
-     botao=0;
-     byte returnByte = expanderRead();
-     boolean bitStatus = bitRead(returnByte, BT_5);
-     botao+=1*bitStatus;
-     returnByte = expanderRead();
-     bitStatus = bitRead(returnByte, BT_6);
-     botao+=2*bitStatus;
-     returnByte = expanderRead();
-     bitStatus = bitRead(returnByte, BT_7);
-     botao+=3*bitStatus;
+  while(leBotao()!=3){
      piscaTela();
   }
   
@@ -282,20 +275,9 @@ void ajustaHora(){
   botao=0;
   
   while(botao!=3 || hora==-1){
-     botao=0;
-      
-     unsigned long currentMillis = millis();
-     if(currentMillis - previousMillis > delayAjuste) {  
-       byte returnByte = expanderRead();
-       boolean bitStatus = bitRead(returnByte, BT_5);
-       botao+=1*bitStatus;
-       returnByte = expanderRead();
-       bitStatus = bitRead(returnByte, BT_6);
-       botao+=2*bitStatus;
-       returnByte = expanderRead();
-       bitStatus = bitRead(returnByte, BT_7);
-       botao+=3*bitStatus;
-       //delay(100);
+    unsigned long currentMillis = millis();
+    if(currentMillis - previousMillis > 300){
+       botao=leBotao();
        if(botao==4){
          hora++;
          if(hora>24) hora=1;
@@ -306,50 +288,32 @@ void ajustaHora(){
          }
        }
        previousMillis = currentMillis;
-     }
+    }
      paraDisplay(hora, 0, 0);
-     //telaAjusteHora();
-     
-   }
+  }
    
+  apagaTela();
+  delay(3000);
+  botao=0;
    
-   apagaTela();
-   delay(3000);
-   
-   
-   botao=0;
-   
-   while(botao!=3 || minuto==-1){
-     botao=0;
-     
+  while(botao!=3 || minuto==-1){
      unsigned long currentMillis = millis();
-     if(currentMillis - previousMillis > delayAjuste) {
-       byte returnByte = expanderRead();
-       boolean bitStatus = bitRead(returnByte, BT_5);
-       botao+=1*bitStatus;
-       returnByte = expanderRead();
-       bitStatus = bitRead(returnByte, BT_6);
-       botao+=2*bitStatus;
-       returnByte = expanderRead();
-       bitStatus = bitRead(returnByte, BT_7);
-       botao+=3*bitStatus;
-       //delay(100);
-       if(botao==4){
-         minuto++;
-         if(minuto>59) minuto=0;
-       }else{
-         if(botao==5){
-           minuto--;
-           if(minuto<0) minuto=59;
+     if(currentMillis - previousMillis > 300){
+         botao= leBotao();
+         if(botao==4){
+           minuto++;
+           if(minuto>59) minuto=0;
+         }else{
+           if(botao==5){
+             minuto--;
+             if(minuto<0) minuto=59;
+           }
          }
-       }
-       previousMillis = currentMillis;
-     }
-     
-     //telaAjusteMinuto();
+         previousMillis = currentMillis;
+      }
      paraDisplay(hora, minuto, 0);
      
-   }
+  }
    
     RTC.stopClock();   
     RTC.fillByYMD(ano,mes,dia);
@@ -391,8 +355,7 @@ void piscaTela(){
   delay(150);
   digitalWrite(switch6, HIGH);
   delay(150);
-  cont++;
-  
+  cont++; 
 }
 
 void apagaTela(){
@@ -405,20 +368,50 @@ void apagaTela(){
 }
 
 int leBotao(){
-   int botao;
+   int _botao=0;
    byte returnByte = expanderRead();
    boolean bitStatus = bitRead(returnByte, BT_5);
-   botao+=1*bitStatus;
-   returnByte = expanderRead();
+   _botao+=1*bitStatus;
    bitStatus = bitRead(returnByte, BT_6);
-   botao+=2*bitStatus;
-   returnByte = expanderRead();
+   _botao+=2*bitStatus;
    bitStatus = bitRead(returnByte, BT_7);
-   botao+=3*bitStatus;
-   return botao;
+   _botao+=3*bitStatus;
+   return _botao;
 }
 
-int leBotao(){
-  int botao;
-  return botao;
+
+//////EFEITOS DE DISPLAY//////
+void cara(int num){
+  switch (num){
+    case 1:
+      digitalWrite(switch1, HIGH);
+      digitalWrite(switch2, LOW);
+      digitalWrite(switch3, LOW);
+      digitalWrite(switch4, HIGH);
+      digitalWrite(switch5, LOW);
+      digitalWrite(switch6, LOW);
+      nixie(0);
+      break;
+    
+    case 2:
+      digitalWrite(switch1, LOW);
+      digitalWrite(switch2, HIGH);
+      digitalWrite(switch3, LOW);
+      digitalWrite(switch4, LOW);
+      digitalWrite(switch5, HIGH);
+      digitalWrite(switch6, LOW);
+      nixie(0);
+      break;
+    
+    case 3:
+      digitalWrite(switch1, LOW);
+      digitalWrite(switch2, LOW);
+      digitalWrite(switch3, HIGH);
+      digitalWrite(switch4, LOW);
+      digitalWrite(switch5, LOW);
+      digitalWrite(switch6, HIGH);
+      nixie(0);
+      break;
+    
+  }
 }
