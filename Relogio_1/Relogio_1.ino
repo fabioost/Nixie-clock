@@ -6,6 +6,7 @@ Modificado: 06/06/16
 */
 #include <Wire.h>                       // For some strange reasons, Wire.h must be included here
 #include <DS1307new.h>
+#include <Encoder.h>
 
 #define expanderAddr B0111000
 #define BT_0  0 
@@ -19,7 +20,7 @@ uint16_t startAddr = 0x0000;            // Start address to store in the NV-RAM
 uint16_t lastAddr;                      // new address for storing in NV-RAM
 uint16_t TimeIsSet = 0xffff; // Helper that time must not set again
 
-int switch1 = 1;
+int switch1 = 1;//pinos de selecao dos tubos de nixie
 int switch2 = 2;
 int switch3 = 4;
 int switch4 = 7;
@@ -33,8 +34,14 @@ long delayAjuste =300; //intervalo ajuste do botao
 long previousMillis = 0;
 long previousMillis2 = 0;
 long intervalPlex = 3; //frequencia do multiplex 55hz
+long oldPosition  = -999;//variavel para encoder
+int valorVelho = 0; //funcao cronometro
+int tempoCronometro = 0;
 boolean pisca = false; //alterna display liga desliga
+boolean encoderAtivo= false;
 int cont =0;
+
+Encoder myEnc(3, 6);
 
 
 void setup() {
@@ -73,10 +80,10 @@ void setup() {
 }
  
 void loop() {
-   // mostraHora();
-   Serial.println(leBotao());
+    mostraHora();
+   //Serial.println(leBotao());
    //Serial.println("A");   
-   delay(1000);
+   //delay(1000);
 }
 
 //-------------------------------------------------//
@@ -105,6 +112,7 @@ void mostraHora(){
      paraDisplay(hora, minuto, segundo);
      
 }
+//////////////////////////////////////////////////////////////
 
 void paraDisplay(int par1, int par2, int par3){//saida para display
     int digito[7] = {0,0,0,0,0,0,0};
@@ -379,7 +387,62 @@ int leBotao(){
    return _botao;
 }
 
+void leEncoder(){
+    long newPosition = myEnc.read();
+      //encoderAtivo = false;
+    if (newPosition >= oldPosition+4) {
+      tempoCronometro++;
+      oldPosition = newPosition;
+      encoderAtivo = true;
+    }else{
+      if(newPosition <= oldPosition-4){
+        tempoCronometro--;
+        oldPosition = newPosition;
+        encoderAtivo = true;
+      }
+    }
+    if(tempoCronometro < 0){
+      tempoCronometro = 0;
+      encoderAtivo = false;
+    }
+}
 
+void cronometro(){
+  leEncoder();
+  int horaCronometro=0, minutoCronometro=0, segundoCronometro = 60;
+  while(encoderAtivo){
+    leEncoder();
+    unsigned long currentMillis = millis();
+    if(currentMillis - previousMillis > 1000){
+      previousMillis = currentMillis;
+      segundoCronometro--;  
+    }
+    if(segundoCronometro < 0 && tempoCronometro > 0){
+        segundoCronometro = 59;
+        tempoCronometro--;
+    }
+    if(tempoCronometro <= 0 && segundoCronometro == 0){
+      tempoCronometro = 0;
+      encoderAtivo = false;
+      tocaMusica();
+    }
+    if(tempoCronometro > 59){
+      horaCronometro = (int)tempoCronometro/60;
+      if(horaCronometro>24) horaCronometro=24;
+      minutoCronometro = (int)tempoCronometro%60;
+    }else{
+      horaCronometro = 0;
+      minutoCronometro = tempoCronometro;
+    }
+    paraDisplay(horaCronometro, minutoCronometro, segundoCronometro);
+  }
+  mostraHora();
+    
+}
+
+void tocaMusica(){
+  
+}
 //////EFEITOS DE DISPLAY//////
 void cara(int num){
   switch (num){
