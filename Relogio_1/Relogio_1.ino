@@ -34,7 +34,7 @@ long delayAjuste =300; //intervalo ajuste do botao
 long previousMillis = 0;
 long previousMillis2 = 0;
 long intervalPlex = 3; //frequencia do multiplex 55hz
-long oldPosition  = -999;//variavel para encoder
+long oldPosition  =-999;//variavel para encoder
 int valorVelho = 0; //funcao cronometro
 int tempoCronometro = 0;
 boolean pisca = false; //alterna display liga desliga
@@ -76,11 +76,13 @@ void setup() {
     RTC.startClock();
     previousMillis = 0;
   }
+  oldPosition = myEnc.read();
   
 }
  
 void loop() {
-    mostraHora();
+  cronometro();
+    //mostraHora();
    //Serial.println(leBotao());
    //Serial.println("A");   
    //delay(1000);
