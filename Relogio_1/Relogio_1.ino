@@ -231,6 +231,9 @@ long delayAjuste =300; //intervalo ajuste do botao
 long previousMillis = 0;
 long previousMillis2 = 0;
 long intervalPlex = 3; //frequencia do multiplex 55hz
+int brilho = 40;//brilho display valor em % limite em 40 - 100
+int tempoLigado = intervalPlex * brilho/100;
+int tempoDesligado = intervalPlex - tempoLigado;
 long oldPosition  =-999;//variavel para encoder
 int valorVelho = 0; //funcao cronometro
 int tempoCronometro = 0;
@@ -299,6 +302,19 @@ void mostraHora(){
        segundo = RTC.second;
        previousMillis = currentMillis;
      }
+     ////////regulagem brilho display por horario////////////
+     if(hora >= 23 || (hora <= 6 && hora >=5)){
+       brilho = 40;
+     }else{
+       if(hora < 5){
+         brilho = 0;
+       }else{
+         brilho = 100;
+       }
+     }
+     calculaTemposDisplay();
+     
+     //////////fim regulagem/////////////////////////////////
      
      
      //paraDisplay(18, 30, 0);
@@ -312,6 +328,11 @@ void mostraHora(){
      
      paraDisplay(hora, minuto, segundo);
      
+}
+//////////////////////////////////////////////////////////////
+void calculaTemposDisplay(){
+  tempoLigado = intervalPlex * brilho/100;
+  tempoDesligado = intervalPlex - tempoLigado;
 }
 //////////////////////////////////////////////////////////////
 
@@ -347,7 +368,8 @@ void paraDisplay(int par1, int par2, int par3){//saida para display
     digitalWrite(switch5, LOW);
     digitalWrite(switch6, LOW);
     nixie(digito[1]);
-    delay(intervalPlex);
+    delay(tempoLigado);
+    apagaTela(tempoDesligado);
     
     digitalWrite(switch1, LOW);
     digitalWrite(switch2, HIGH);
@@ -356,7 +378,8 @@ void paraDisplay(int par1, int par2, int par3){//saida para display
     digitalWrite(switch5, LOW);
     digitalWrite(switch6, LOW);
     nixie(digito[2]);
-    delay(intervalPlex);
+    delay(tempoLigado);
+    apagaTela(tempoDesligado);
     
     digitalWrite(switch1, LOW);
     digitalWrite(switch2, LOW);
@@ -365,7 +388,8 @@ void paraDisplay(int par1, int par2, int par3){//saida para display
     digitalWrite(switch5, LOW);
     digitalWrite(switch6, LOW);
     nixie(digito[3]);
-    delay(intervalPlex);
+    delay(tempoLigado);
+    apagaTela(tempoDesligado);
     
     digitalWrite(switch1, LOW);
     digitalWrite(switch2, LOW);
@@ -374,7 +398,8 @@ void paraDisplay(int par1, int par2, int par3){//saida para display
     digitalWrite(switch5, LOW);
     digitalWrite(switch6, LOW);
     nixie(digito[4]);
-    delay(intervalPlex);
+    delay(tempoLigado);
+    apagaTela(tempoDesligado);
     
     digitalWrite(switch1, LOW);
     digitalWrite(switch2, LOW);
@@ -383,7 +408,8 @@ void paraDisplay(int par1, int par2, int par3){//saida para display
     digitalWrite(switch5, HIGH);
     digitalWrite(switch6, LOW);
     nixie(digito[5]);
-    delay(intervalPlex);
+    delay(tempoLigado);
+    apagaTela(tempoDesligado);
     
     digitalWrite(switch1, LOW);
     digitalWrite(switch2, LOW);
@@ -392,7 +418,8 @@ void paraDisplay(int par1, int par2, int par3){//saida para display
     digitalWrite(switch5, LOW);
     digitalWrite(switch6, HIGH);
     nixie(digito[6]);
-    delay(intervalPlex);
+    delay(tempoLigado);
+    apagaTela(tempoDesligado);
   
 }
 
@@ -478,8 +505,7 @@ void ajustaHora(){
      piscaTela();
   }
   
-  apagaTela();
-  delay(3000);
+  apagaTela(3000);
   
   botao=0;
   
@@ -501,8 +527,7 @@ void ajustaHora(){
      paraDisplay(hora, 0, 0);
   }
    
-  apagaTela();
-  delay(3000);
+  apagaTela(3000);
   botao=0;
    
   while(botao!=3 || minuto==-1){
@@ -548,8 +573,7 @@ void telaAjusteMinuto(){
 */
 
 void piscaTela(){
-  apagaTela();
-  delay(1000);
+  apagaTela(1000);
   if(cont>9) cont =0;
   nixie(cont);
   digitalWrite(switch1, HIGH);
@@ -567,13 +591,14 @@ void piscaTela(){
   cont++; 
 }
 
-void apagaTela(){
+void apagaTela(int tempo){
   digitalWrite(switch1, LOW);
   digitalWrite(switch2, LOW);
   digitalWrite(switch3, LOW);
   digitalWrite(switch4, LOW);
   digitalWrite(switch5, LOW);
   digitalWrite(switch6, LOW);
+  delay(tempo);
 }
 
 int leBotao(){
@@ -707,7 +732,7 @@ void sing(int s) {
  
 void buzz(int targetPin, long frequency, long length) {
   //digitalWrite(13, HIGH);
-  efeitoDisplay(random(1,6));
+  efeitoDisplay(random(1,7));
   long delayValue = 1000000 / frequency / 2; // calculate the delay value between transitions
   //// 1 second's worth of microseconds, divided by the frequency, then split in half since
   //// there are two phases to each cycle
@@ -721,7 +746,7 @@ void buzz(int targetPin, long frequency, long length) {
     delayMicroseconds(delayValue); // wait again or the calculated delay value
   }
   //digitalWrite(13, LOW);
-  apagaTela();
+  apagaTela(0);
  
 }
 
