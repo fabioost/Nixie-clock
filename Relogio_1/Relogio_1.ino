@@ -588,15 +588,19 @@ int leBotao(){
    return _botao;
 }
 
+int segundoCronometro = 60;//debug  
+
 void leEncoder(){
     long newPosition = myEnc.read();
     if (newPosition >= oldPosition+4) {
       tempoCronometro++;
+      segundoCronometro = 60;//debug
       oldPosition = newPosition;
       encoderAtivo = true;
     }else{
       if(newPosition <= oldPosition-4){
         tempoCronometro--;
+        segundoCronometro = 60;//debug
         oldPosition = newPosition;
         encoderAtivo = true;
       }
@@ -609,7 +613,7 @@ void leEncoder(){
 
 void cronometro(){
   leEncoder();
-  int horaCronometro=0, minutoCronometro=0, segundoCronometro = 60;
+  int horaCronometro=0, minutoCronometro=0; //segundoCronometro = 60;
   while(encoderAtivo){
     leEncoder();
     unsigned long currentMillis = millis();
