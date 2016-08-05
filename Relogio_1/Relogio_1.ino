@@ -2,7 +2,8 @@
 Relogio Nixie 1
 This code cycles through the digits of a Nixie Tube.
 Autor: Fabio Leandro Ost
-Modificado: 06/06/16
+first:06/06/16
+Modificado: 04/08/16
 */
 #include <Wire.h>                       // For some strange reasons, Wire.h must be included here
 #include <DS1307new.h>
@@ -223,7 +224,7 @@ int switch3 = 4;
 int switch4 = 7;
 int switch5 = 12;
 int switch6 = 13;
-int hora=-1, minuto=-1, segundo=0, dia=27, mes=7, ano=2016;
+int hora= 24, minuto=-1, segundo=0, dia=27, mes=7, ano=2016;
 
 int i=0;
 long interval = 1000; //intervalo de atualizacao display 1s
@@ -231,7 +232,7 @@ long delayAjuste =300; //intervalo ajuste do botao
 long previousMillis = 0;
 long previousMillis2 = 0;
 long intervalPlex = 3; //frequencia do multiplex 55hz
-int brilho = 40;//brilho display valor em % limite em 40 - 100
+int brilho = 100;//brilho display valor em % limite em 40 - 100
 int tempoLigado = intervalPlex * brilho/100;
 int tempoDesligado = intervalPlex - tempoLigado;
 long oldPosition  =-999;//variavel para encoder
@@ -303,17 +304,14 @@ void mostraHora(){
        previousMillis = currentMillis;
      }
      ////////regulagem brilho display por horario////////////
-     if(hora >= 23 || (hora <= 6 && hora >=5)){
+     
+     if(hora >= 23 || hora <= 6 ){
        brilho = 40;
      }else{
-       if(hora < 5){
-         brilho = 0;
-       }else{
-         brilho = 100;
-       }
-     }
-     calculaTemposDisplay();
+       brilho = 100;
+     } 
      
+     calculaTemposDisplay();
      //////////fim regulagem/////////////////////////////////
      
      
@@ -325,8 +323,11 @@ void mostraHora(){
     Serial.print(" : ");
     Serial.println(segundo);
     */
-     
-     paraDisplay(hora, minuto, segundo);
+   if(hora >= 5){ 
+      paraDisplay(hora, minuto, segundo);
+    }else{
+      apagaTela(60000);
+    }
      
 }
 //////////////////////////////////////////////////////////////
