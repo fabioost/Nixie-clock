@@ -305,10 +305,14 @@ void mostraHora(){
      }
      ////////regulagem brilho display por horario////////////
      
-     if(hora >= 23 || hora <= 6 ){
+     if(hora >= 23 || (hora <= 7 && hora >=6) ){
        brilho = 40;
      }else{
-       brilho = 100;
+       if(hora < 5){
+         brilho = 35;
+       }else{
+         brilho = 100;
+       }
      } 
      
      calculaTemposDisplay();
@@ -323,10 +327,10 @@ void mostraHora(){
     Serial.print(" : ");
     Serial.println(segundo);
     */
-   if(hora >= 5){ 
-      paraDisplay(hora, minuto, segundo);
+   if(hora >= 6){ 
+     paraDisplay(hora, minuto, segundo);
     }else{
-      apagaTela(60000);
+      apagaTela(1000);
     }
      
 }
