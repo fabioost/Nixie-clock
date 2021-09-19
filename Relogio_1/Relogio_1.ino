@@ -3,11 +3,40 @@ Relogio Nixie 1
 This code cycles through the digits of a Nixie Tube.
 Autor: Fabio Leandro Ost
 first:06/06/16
-Modificado: 04/08/16
+Modificado: 14/01/19
 */
+/////////////////////////////////////ESP
+/*
+Thingspeak CREDENTIALS:
+fabioost@bol.com.br
+Aa0840c7
+*/
+
+#include <SoftwareSerial.h>       //Software Serial library
+SoftwareSerial esp8266(3, 6);   //Pin 3 and 6 act as RX and TX. Connect them to TX and RX of ESP8266   
+int responseTime = 1000; //communication timeout
+
+String mySSID = "\"SSID\"";       // WiFi SSID
+String myPWD = "\"SENHA\""; // WiFi Password
+
+String apESSID = "\"ESP3\"";
+String appassword = "\"SENHA\"";
+
+String myAPI = "Y8F458G58KQR7K84";   // API Key
+String myHOST = "api.thingspeak.com";
+String myPORT = "80";
+
+#define DEBUG false
+boolean disparo = true;
+boolean espLigado = false;
+boolean espReset = false;
+  
+////////////////////////////////////////FIMESP
+
 #include <Wire.h>                       // For some strange reasons, Wire.h must be included here
 #include <DS1307new.h>
-#include <Encoder.h>
+//#define ENCODER_DO_NOT_USE_INTERRUPTS
+//#include <Encoder.h>
 
 #define expanderAddr B0111000
 #define BT_0  0 
@@ -242,11 +271,21 @@ boolean pisca = false; //alterna display liga desliga
 boolean encoderAtivo= false;
 int cont =0;
 
-Encoder myEnc(3, 6);
+//Encoder myEnc(15, 16);
+
 
 
 void setup() {
   //Serial.begin(9600);
+
+  ///////////////////ESP
+  //Serial.begin(9600);
+  esp8266.begin(9600);
+ // resetEsp();
+  //sendToUno("Wifi connection is running!",responseTime,DEBUG);
+
+  /////////////////////FIMESP
+  
   
   Wire.begin();//ajustar rtc
   RTC.setRAM(0, (uint8_t *)&startAddr, sizeof(uint16_t));// Store startAddr in NV-RAM address 0x08 
@@ -265,27 +304,30 @@ void setup() {
   pinMode(switch4, OUTPUT);//pinos do multiplex
   pinMode(switch5, OUTPUT);//pinos do multiplex
   pinMode(switch6, OUTPUT);//pinos do multiplex
+
   
   if (TimeIsSet != 0xaa55){
-    ajustaHora();
-    /*
+    //ajustaHora();
+    
     RTC.stopClock();   
     RTC.fillByYMD(2016,7,11);
     RTC.fillByHMS(18,30,0);
     RTC.setTime();
-    */
+    
     TimeIsSet = 0xaa55;
     RTC.setRAM(54, (uint8_t *)&TimeIsSet, sizeof(uint16_t));
     RTC.startClock();
     previousMillis = 0;
   }
-  oldPosition = myEnc.read();
+  
+ //verificaHora();
+ //oldPosition = myEnc.read();
   
 }
  
 void loop() {
-  cronometro();
-    //mostraHora();
+  //cronometro();
+   mostraHora();
    //Serial.println(leBotao());
    //Serial.println("A");   
    //delay(1000);
@@ -293,7 +335,49 @@ void loop() {
 
 //-------------------------------------------------//
 //METODOS:
+
+void espAtivo(){
+  //testa resposta esp 
+  String res = sendToEsp("AT", 200, DEBUG);
+  if(find(res,"OK")) espLigado = true;
+  else{
+    espLigado = false;
+    espReset = false;
+  }
+  if(espLigado && !espReset) resetEsp();
+}
+
+
+void verificaHora(){ 
+  if (espLigado){  //verifica esp ligado e com ip
+        String value ="";
+        String views = getTrueTime();
+        //sendToUno(views,responseTime,DEBUG);
+        value = views.substring(0,2);
+        int horaInternet = value.toInt();
+        value = views.substring(3,5);
+        int minutoInternet = value.toInt();
+        value = views.substring(6,-1);
+        int segundoInternet = value.toInt();
+       
+      if(horaInternet >= 0 && horaInternet <= 24){
+        if(horaInternet != hora || minutoInternet != minuto){// || segundoInternet > (segundo + 10) || segundoInternet < (segundo - 10)){
+              RTC.stopClock();   
+              RTC.fillByYMD(ano,mes,dia);
+              RTC.fillByHMS(horaInternet, minutoInternet, segundoInternet );
+              RTC.setTime();
+              RTC.startClock(); 
+        }
+        
+      }
+  }
+  
+}
+
+//
+
 void mostraHora(){
+     if(espLigado && espReset) getInstructions();
   
      unsigned long currentMillis = millis();
      if(currentMillis - previousMillis > interval) {
@@ -302,6 +386,8 @@ void mostraHora(){
        minuto= RTC.minute;
        segundo = RTC.second;
        previousMillis = currentMillis;
+       
+       if(segundo==0) espAtivo();
      }
      ////////regulagem brilho display por horario////////////
      
@@ -325,10 +411,36 @@ void mostraHora(){
     */
    if(hora >= 5){ 
       paraDisplay(hora, minuto, segundo);
+      disparo = true;
+      if(hora==7 && minuto == 0 && segundo == 0) tocaMusicaUnderworld();
     }else{
-      apagaTela(60000);
+      //verificaHora();
+      //disparo = false;
+      apagaTela(1000);
     }
      
+}
+
+void getInstructions(){
+   if(esp8266.available()>0){
+     String message = readWifiSerialMessage();
+      
+      if(find(message,"cron")){
+        String tempo = message.substring(14,message.length());
+        int num = tempo.toInt();
+        cronometro2(num);
+      }
+      if(find(message,"ajusta")){
+        verificaHora();
+      }
+       if(find(message,"under")){
+        tocaMusicaUnderworld();
+      }
+      if(find(message,"cara")){
+        cara();
+      }
+   }
+  
 }
 //////////////////////////////////////////////////////////////
 void calculaTemposDisplay(){
@@ -549,7 +661,11 @@ void ajustaHora(){
      paraDisplay(hora, minuto, 0);
      
   }
-   
+  setahora();
+    
+}
+
+void setahora(){
     RTC.stopClock();   
     RTC.fillByYMD(ano,mes,dia);
     RTC.fillByHMS(hora,minuto,0);
@@ -614,9 +730,26 @@ int leBotao(){
    return _botao;
 }
 
+////////////////////Teste usando pinos analogicoa A1 e A2 como 15 16
 int segundoCronometro = 60;//debug  
 
 void leEncoder(){
+  /*
+  long newPosition = myEnc.read();
+  if (newPosition != oldPosition) {
+    segundoCronometro = 60;//debug
+    oldPosition = newPosition;
+    tempoCronometro = newPosition/4;
+    encoderAtivo = true;
+    
+    if(tempoCronometro < 0){
+      tempoCronometro = 0;
+      encoderAtivo = false;
+    }
+    //Serial.println(tempoCronometro);
+  }
+  
+  /*
     long newPosition = myEnc.read();
     if (newPosition >= oldPosition+4) {
       tempoCronometro++;
@@ -635,6 +768,7 @@ void leEncoder(){
       tempoCronometro = 0;
       encoderAtivo = false;
     }
+    */
 }
 
 void cronometro(){
@@ -670,12 +804,17 @@ void cronometro(){
     
 }
 
+////////////////////////fim teste
+
 void tocaMusica(){
   //sing the tunes
   sing(1);
   sing(1);
   sing(2);
   
+}
+void tocaMusicaUnderworld(){
+  sing(2);
 }
 
 ///////InicioMelodiaMario/////
@@ -820,3 +959,294 @@ void efeitoDisplay(int num){
     
   }
 }
+
+void efeitoDisplay2(int num){
+  switch (num){
+    case 1:
+      digitalWrite(switch1, HIGH);
+      digitalWrite(switch2, LOW);
+      digitalWrite(switch3, HIGH);
+      digitalWrite(switch4, LOW);
+      digitalWrite(switch5, LOW);
+      digitalWrite(switch6, LOW);
+      nixie(0);
+      break;
+    
+    case 2:
+      digitalWrite(switch1, LOW);
+      digitalWrite(switch2, HIGH);
+      digitalWrite(switch3, LOW);
+      digitalWrite(switch4, HIGH);
+      digitalWrite(switch5, LOW);
+      digitalWrite(switch6, LOW);
+      nixie(0);
+      break;
+    
+    case 3:
+      digitalWrite(switch1, LOW);
+      digitalWrite(switch2, LOW);
+      digitalWrite(switch3, HIGH);
+      digitalWrite(switch4, LOW);
+      digitalWrite(switch5, HIGH);
+      digitalWrite(switch6, LOW);
+      nixie(0);
+      break;
+      
+    case 4:
+      digitalWrite(switch1, LOW);
+      digitalWrite(switch2, LOW);
+      digitalWrite(switch3, LOW);
+      digitalWrite(switch4, HIGH);
+      digitalWrite(switch5, LOW);
+      digitalWrite(switch6, HIGH);
+      nixie(0);
+      break;
+      
+    case 5:
+      digitalWrite(switch1, LOW);
+      digitalWrite(switch2, LOW);
+      digitalWrite(switch3, HIGH);
+      digitalWrite(switch4, LOW);
+      digitalWrite(switch5, HIGH);
+      digitalWrite(switch6, LOW);
+      nixie(1);
+      break;
+      
+    case 6:
+      digitalWrite(switch1, LOW);
+      digitalWrite(switch2, HIGH);
+      digitalWrite(switch3, LOW);
+      digitalWrite(switch4, HIGH);
+      digitalWrite(switch5, LOW);
+      digitalWrite(switch6, LOW);
+      nixie(1);
+      break;
+    
+  }
+}
+void cara(){
+  int vet[13] = {2,2,1,2,6,3,3,5,3,4,3,5,3};
+  int tempo = 1000;
+  for(int i=1 ; i <=13; i++){
+     efeitoDisplay2(vet[i]);
+     if(vet[i]==5 || vet[i] == 6) tempo = 100;
+     else tempo = random(1000,5000);
+     delay(tempo);
+  }
+}
+
+////////////////////////////ESP
+String getTrueTime(){
+  delay(300);
+  //sendToEsp("AT+CIPCLOSE=5",3000,DEBUG);
+  sendToEsp("AT+CIPSTART=1,\"TCP\",\""+ myHOST +"\","+ myPORT, 3000, DEBUG); //0
+  sendToEsp("AT+CIPSEND=1,90",1000,DEBUG); //0
+  
+  String hostt = "GET /apps/thinghttp/send_request?api_key=";
+  hostt+= myAPI;
+ 
+  hostt+="\r\n";
+  hostt+="Host:api.thingspeak.com";
+  hostt+="\r\n\r\n\r\n\r\n";
+  
+  String views = sendToEsp(hostt,3000,DEBUG);
+  sendToEsp("AT+CIPCLOSE=1",3000,DEBUG); //5
+
+  
+  /********************** Steps To filter the received data. ****************************/
+  
+  int i = 0;        
+  //if (DEBUG)
+   // Serial.println(views);
+
+  while (views.charAt(i) != ':') // Character before required data starts.
+    i++;
+    
+  i++;
+  views = views.substring(i);
+  
+  int j = 0;
+  while (views.charAt(j) != 'C') // Character after required data ends.
+    j++;
+
+  j-=2; 
+  views = views.substring(0, j);
+  
+  //if (DEBUG)
+    //Serial.println(views);
+
+  return (String)(views);
+}
+
+void resetEsp(){
+
+      String res = "";
+      sendToEsp("AT+RST", 2000, DEBUG); // rst
+      //delay(1000);
+      /*
+      while (!esp8266.available()){
+         //Serial.println("Esperando Esp8266...");////wait
+         paraDisplay(0, 0, 0);
+         delay(100);
+      }
+      */
+      for(int i =0; i <  80; i++){
+        delay(100);
+        paraDisplay(0, 0, 0);
+      }
+
+      
+      /*
+      /////////////CONFIGURACAO DEFINITIVA///////////////////
+    
+      sendToEsp("AT+CWQAP", 2000, DEBUG);//DISCONECTA DA WIFII
+      
+      sendToEsp("AT+CWMODE_DEF=3", 2000, DEBUG);//ACEESPOINT + ESTATION
+      
+      //login e senha wiffi AP
+      sendToEsp("AT+CWSAP_DEF="+ apESSID + "," + appassword + ",1,3",2000, DEBUG);  
+      
+      // Conecta a rede wireless
+      sendToEsp("AT+CWJAP_DEF="+ mySSID +","+ myPWD, 2000, DEBUG);
+      
+      delay(3000);
+
+      ////////////////////FIM CONFIGURACAO DEFINITIVA
+      */
+     
+     
+      // Mostra o endereco IP
+      res = sendToEsp("AT+CIFSR", 1000, DEBUG);
+      if(find(res,"OK")) {
+        int n1=0,n2=0,n3=0;
+        String res2="";
+        // Mostra o endereco IP
+        res = sendToEsp("AT+CIFSR", 3000, DEBUG);
+        res= res.substring(10,res.length());
+        res2=res.substring(res.indexOf('T')+15,res.indexOf('T')+19);
+        n1 = res2.substring(1,2).toInt();
+        n2 = res2.substring(2,3).toInt();
+        n3 = res2.substring(3,4).toInt();
+        for(int i =0; i <  20; i++){
+          delay(100);
+          paraDisplay(n1, n2, n3);
+        }
+        espReset = true;
+      }
+      else{
+        for(int i =0; i <  20; i++){
+          delay(100);
+          paraDisplay(1, 1, 1);
+        }
+      }
+      
+      // Configura para multiplas conexoes
+      sendToEsp("AT+CIPMUX=1", 1000, DEBUG);
+      
+      // Inicia o web server na porta 80
+      sendToEsp("AT+CIPSERVER=1,80", 1000, DEBUG);
+     // delay(3000);
+      
+}
+
+String sendToEsp(String command, const int timeout, boolean debug){
+  // Envio dos comandos AT para o modulo
+  command+="\r\n";
+  String response = "";
+  esp8266.print(command);
+  long int time = millis();
+  while ( (time + timeout) > millis())
+  {
+    while (esp8266.available())
+    {
+      // The esp has data so display its output to the serial window
+      char c = esp8266.read(); // read the next character.
+      response += c;
+    }
+  }
+  if (debug)
+  {
+    //Serial.print(response);
+  }
+  return response;
+}
+
+boolean find(String string, String value){
+  if(string.indexOf(value)>=0) return true;
+  else return false;
+}
+
+/*
+* Name: readWifiSerialMessage
+* Description: Function used to read data from ESP8266 Serial.
+* Params: 
+* Returns: The response from the esp8266 (if there is a reponse)
+*/
+String  readWifiSerialMessage(){
+  char value[100]; 
+  int index_count = 0;
+  while(esp8266.available()>0){
+    value[index_count]=esp8266.read();
+    index_count++;
+    value[index_count] = '\0'; // Null terminate the string
+  }
+  String str(value);
+  str.trim();
+  return str;
+}
+
+void cronometro2(int num){
+  tempoCronometro = num;
+  int horaCronometro=0, minutoCronometro=0, segundoCronometro = 0;
+  encoderAtivo = true;
+  while(encoderAtivo){
+    getInstructions();
+    unsigned long currentMillis = millis();
+    if(currentMillis - previousMillis > 1000){
+      previousMillis = currentMillis;
+      segundoCronometro--;  
+    }
+    if(segundoCronometro < 0 && tempoCronometro > 0){
+        segundoCronometro = 59;
+        tempoCronometro--;
+    }
+    if(tempoCronometro <= 0 && segundoCronometro <= 0){
+      tempoCronometro = 0;
+      encoderAtivo = false;
+      tocaMusica();
+    }
+    if(tempoCronometro > 59){
+      horaCronometro = (int)tempoCronometro/60;
+      if(horaCronometro>24) horaCronometro=24;
+      minutoCronometro = (int)tempoCronometro%60;
+    }else{
+      horaCronometro = 0;
+      minutoCronometro = tempoCronometro;
+    }
+    paraDisplay(horaCronometro, minutoCronometro, segundoCronometro);
+    
+  }
+  mostraHora();
+  
+}
+/*
+String sendToUno(String command, const int timeout, boolean debug){
+  String response = "";
+  Serial.println(command); // send the read character to the esp8266
+  long int time = millis();
+  while( (time+timeout) > millis())
+  {
+    while(Serial.available())
+    {
+      // The esp has data so display its output to the serial window 
+      char c = Serial.read(); // read the next character.
+      response+=c;
+    }  
+  }
+  if(debug)
+  {
+    Serial.println(response);
+  }
+  return response;
+}
+*/
